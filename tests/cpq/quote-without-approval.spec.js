@@ -81,6 +81,16 @@ test.describe('Salesforce CPQ – E2E Flow Without Approval', () => {
         // =========================
        
         await utils.setDiscountOnQuote(quoteId, testData.discount.withoutApproval);
+        await utils.closeOpportunityAsWon(opportunityId);
+
+        // 🔍 VERIFY Opportunity Stage
+       const oppData = await utils.apiRequest(
+         'get',
+        `sobjects/Opportunity/${opportunityId}?fields=Id,StageName`
+);
+
+console.log(`🔎 Opportunity Stage after update: ${oppData.StageName}`);
+        
 
         // Approval nahi lagegi — seedha Order
         const orderPage = poManager.getOrderPage();

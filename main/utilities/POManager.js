@@ -8,12 +8,13 @@ const { AccountPage } = require('../pageObjects/AccountPage');
 const { QLEPage } = require('../pageObjects/QLEPage');
 const { OrderPage } = require('../pageObjects/OrderPage');
 const { ContractPage } = require('../pageObjects/ContractPage');
+const { AmendmentPage } = require('../pageObjects/AmendmentPage');
 
 class POManager {
 
     constructor(page, utilityFunctions) {
         this.page = page;
-        this.utils = utilityFunctions; 
+        this.utils = utilityFunctions;
 
         this.loginPage = new LoginPage(this.page);
         this.accountPage = new AccountPage(this.page, this.utils);
@@ -23,6 +24,7 @@ class POManager {
         this.qlePage = new QLEPage(this.page);
         this.orderPage = new OrderPage(this.page, this.utils);
         this.contractPage = new ContractPage(this.page, this.utils);
+        this.amendmentPage = new AmendmentPage(this.page, this.utils);
     }
 
     getLoginPage() { return this.loginPage; }
@@ -33,6 +35,8 @@ class POManager {
     getQLEPage() { return this.qlePage; }
     getOrderPage() { return this.orderPage; }
     getContractPage() { return this.contractPage; }
+    getAmendmentPage() { return this.amendmentPage; }
+
     async createAccountHybrid(useAPI = true) {
         return await this.accountPage.createAccount(null, useAPI);
     }

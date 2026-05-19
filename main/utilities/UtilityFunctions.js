@@ -18,9 +18,6 @@ class UtilityFunctions {
         this.tokenExpiry = null;
     }
 
-    // =========================
-    // 🔐 JWT TOKEN
-    // =========================
     async getAccessToken() {
         if (this.accessToken && this.tokenExpiry && new Date() < this.tokenExpiry) {
             return this.accessToken;
@@ -56,9 +53,6 @@ class UtilityFunctions {
         return this.accessToken;
     }
 
-    // =========================
-    // 🔨 GENERIC API CALL
-    // =========================
     async apiRequest(method, endpoint, data = null) {
         const token = await this.getAccessToken();
 
@@ -80,21 +74,21 @@ class UtilityFunctions {
         }
     }
 
-    // =========================
-    // 🏢 ACCOUNT
-    // =========================
     async createAccountViaAPI() {
         const res = await this.apiRequest(
             'post',
             'sobjects/Account',
-            { Name: `${testData.account.namePrefix}_${faker.number.int({ min: 1000, max: 9999 })}` }
+            {
+                Name: `${testData.account.namePrefix}_${faker.number.int({
+                    min: 1000,
+                    max: 9999
+                })}`
+            }
         );
+
         return res.id;
     }
 
-    // =========================
-    // 👤 CONTACT
-    // =========================
     async createContactViaAPI(accountId, data = {}) {
         if (!accountId) throw new Error('accountId required');
 
@@ -105,36 +99,53 @@ class UtilityFunctions {
             AccountId: accountId
         };
 
-        const res = await this.apiRequest('post', 'sobjects/Contact', contactData);
+        const res = await this.apiRequest(
+            'post',
+            'sobjects/Contact',
+            contactData
+        );
+
         return res.id;
     }
 
-    // =========================
-    // 💼 OPPORTUNITY
-    // =========================
     async createOpportunityViaAPI(accountId) {
         const res = await this.apiRequest(
             'post',
             'sobjects/Opportunity',
             {
-                Name: `Opp_${faker.number.int({ min: 1000, max: 9999 })}`,
+                Name: `Opp_${faker.number.int({
+                    min: 1000,
+                    max: 9999
+                })}`,
                 StageName: testData.opportunity.stage,
                 CloseDate: new Date().toISOString().split('T')[0],
                 AccountId: accountId
             }
         );
+
         return res.id;
     }
 
-    // =========================
-    // 📝 QUOTE
-    // =========================
+    async closeOpportunityAsWon(opportunityId) {
+        await this.apiRequest(
+            'patch',
+            `sobjects/Opportunity/${opportunityId}`,
+            {
+                StageName: 'Closed Won',
+                CloseDate: new Date().toISOString().split('T')[0]
+            }
+        );
+
+        console.log(`✅ Opportunity marked as Closed Won`);
+    }
+
     async createQuoteViaAPI(opportunityId, accountId, contactId = null, data = null) {
         if (!opportunityId || !accountId) {
             throw new Error('opportunityId & accountId required');
         }
 
         const startDate = new Date();
+
         const endDate = new Date();
         endDate.setMonth(startDate.getMonth() + testData.subscriptionTerm);
 
@@ -152,74 +163,106 @@ class UtilityFunctions {
             quoteData.SBQQ__PrimaryContact__c = contactId;
         }
 
-        const result = await this.apiRequest('post', 'sobjects/SBQQ__Quote__c/', quoteData);
+        const result = await this.apiRequest(
+            'post',
+            'sobjects/SBQQ__Quote__c/',
+            quoteData
+        );
+
         return result.id;
     }
 
-    // =========================
-    // 📚 PRICEBOOK
-    // =========================
     async setPricebookOnQuote(quoteId, pricebookName = testData.pricebook.name) {
-    const encodedName = encodeURIComponent(pricebookName);
-    const query = `SELECT+Id+FROM+Pricebook2+WHERE+Name='${encodedName}'+LIMIT+1`;
-    const pbResult = await this.apiRequest('get', `query?q=${query}`);
+        const encodedName = encodeURIComponent(pricebookName);
 
-    if (!pbResult.records?.length) {
-        throw new Error(`❌ Pricebook not found: ${pricebookName}`);
+        const query =
+            `SELECT+Id+FROM+Pricebook2+WHERE+Name='${encodedName}'+LIMIT+1`;
+
+        const pbResult = await this.apiRequest(
+            'get',
+            `query?q=${query}`
+        );
+
+        if (!pbResult.records?.length) {
+            throw new Error(`❌ Pricebook not found: ${pricebookName}`);
+        }
+
+        const pricebookId = pbResult.records[0].Id;
+
+        await this.apiRequest(
+            'patch',
+            `sobjects/SBQQ__Quote__c/${quoteId}`,
+            {
+                SBQQ__PricebookId__c: pricebookId
+            }
+        );
+
+        console.log(`✅ Pricebook set: ${pricebookName}`);
     }
 
-    const pricebookId = pbResult.records[0].Id;
-
-    await this.apiRequest(
-        'patch',
-        `sobjects/SBQQ__Quote__c/${quoteId}`,
-        { SBQQ__PricebookId__c: pricebookId }
-    );
-
-    console.log(`✅ Pricebook set: ${pricebookName}`);
-}
-
-    // =========================
-    // 💰 DISCOUNT
-    // =========================
     async setDiscountOnQuote(quoteId, discountPercent = testData.discount) {
         await this.apiRequest(
             'patch',
             `sobjects/SBQQ__Quote__c/${quoteId}`,
-            { SBQQ__CustomerDiscount__c: discountPercent }
+            {
+                SBQQ__CustomerDiscount__c: discountPercent
+            }
         );
+
         console.log(`✅ Discount set: ${discountPercent}%`);
     }
-// =========================
-// 📦 SET QUANTITY ON QUOTE LINE
-// =========================
-async setQuantityOnQuoteLine(quoteId, quantity = testData.product.quantity) {
-    if (quantity <= 1) return; // Default 1 hai toh skip karo
 
-    // Quote Line fetch karo
-    const result = await this.apiRequest(
-        'get',
-        `query?q=SELECT+Id+FROM+SBQQ__QuoteLine__c+WHERE+SBQQ__Quote__c='${quoteId}'+LIMIT+1`
-    );
+    async setQuantityOnQuoteLine(quoteId, quantity = testData.product.quantity) {
+        if (quantity <= 1) return;
 
-    if (!result.records?.length) {
-        throw new Error('❌ Quote Line not found');
+        const result = await this.apiRequest(
+            'get',
+            `query?q=SELECT+Id+FROM+SBQQ__QuoteLine__c+WHERE+SBQQ__Quote__c='${quoteId}'+LIMIT+1`
+        );
+
+        if (!result.records?.length) {
+            throw new Error('❌ Quote Line not found');
+        }
+
+        const quoteLineId = result.records[0].Id;
+
+        await this.apiRequest(
+            'patch',
+            `sobjects/SBQQ__QuoteLine__c/${quoteLineId}`,
+            {
+                SBQQ__Quantity__c: quantity
+            }
+        );
+
+        console.log(`✅ Quantity set via API: ${quantity}`);
     }
 
-    const quoteLineId = result.records[0].Id;
-
-    // Quantity set karo
-    await this.apiRequest(
-        'patch',
-        `sobjects/SBQQ__QuoteLine__c/${quoteLineId}`,
-        { SBQQ__Quantity__c: quantity }
-    );
-
-    console.log(`✅ Quantity set via API: ${quantity}`);
-}
     // =========================
-    // ✅ SUBMIT FOR APPROVAL
+    // ✏️ UPDATE AMENDMENT QUOTE LINE QUANTITY ONLY
     // =========================
+    async updateAmendmentQuoteLineQuantity(quoteId, quantity) {
+        const result = await this.apiRequest(
+            'get',
+            `query?q=SELECT+Id+FROM+SBQQ__QuoteLine__c+WHERE+SBQQ__Quote__c='${quoteId}'+LIMIT+1`
+        );
+
+        if (!result.records?.length) {
+            throw new Error('❌ Amendment Quote Line not found');
+        }
+
+        const quoteLineId = result.records[0].Id;
+
+        await this.apiRequest(
+            'patch',
+            `sobjects/SBQQ__QuoteLine__c/${quoteLineId}`,
+            {
+                SBQQ__Quantity__c: quantity
+            }
+        );
+
+        console.log(`✅ Amendment Quote Line quantity updated → ${quantity}`);
+    }
+
     async submitQuoteForApproval(quoteId) {
         const result = await this.apiRequest(
             'post',
@@ -234,12 +277,10 @@ async setQuantityOnQuoteLine(quoteId, quantity = testData.product.quantity) {
         );
 
         console.log(`✅ Quote submitted for approval`);
+
         return result;
     }
 
-    // =========================
-    // ⏳ GET APPROVAL WORKITEM
-    // =========================
     async getApprovalWorkitemId(quoteId, retries = 10, waitMs = 3000) {
         for (let i = 0; i < retries; i++) {
             const result = await this.apiRequest(
@@ -260,9 +301,6 @@ async setQuantityOnQuoteLine(quoteId, quantity = testData.product.quantity) {
         throw new Error('❌ Approval workitem not found after retries');
     }
 
-    // =========================
-    // ✅ APPROVE QUOTE
-    // =========================
     async approveQuote(workitemId) {
         await this.apiRequest(
             'post',
@@ -278,71 +316,81 @@ async setQuantityOnQuoteLine(quoteId, quantity = testData.product.quantity) {
 
         console.log(`✅ Quote approved!`);
     }
-    // =========================
-// 📦 ORDER
-// =========================
-async createOrderFromQuote(quoteId) {
-    await this.apiRequest(
-        'patch',
-        `sobjects/SBQQ__Quote__c/${quoteId}`,
-        { SBQQ__Ordered__c: true }
-    );
-    console.log(`✅ Quote marked as Ordered`);
 
-    await new Promise(r => setTimeout(r, 3000));
+    async createOrderFromQuote(quoteId) {
+        await this.apiRequest(
+            'patch',
+            `sobjects/SBQQ__Quote__c/${quoteId}`,
+            {
+                SBQQ__Ordered__c: true
+            }
+        );
 
-    const result = await this.apiRequest(
-        'get',
-        `query?q=SELECT+Id,OrderNumber+FROM+Order+WHERE+SBQQ__Quote__c='${quoteId}'+LIMIT+1`
-    );
+        console.log(`✅ Quote marked as Ordered`);
 
-    if (!result.records?.length) throw new Error('❌ Order not found');
+        await new Promise(r => setTimeout(r, 3000));
 
-    const orderId = result.records[0].Id;
-    console.log(`✅ Order created → ID: ${orderId} | Number: ${result.records[0].OrderNumber}`);
-    return orderId;
-}
+        const result = await this.apiRequest(
+            'get',
+            `query?q=SELECT+Id,OrderNumber+FROM+Order+WHERE+SBQQ__Quote__c='${quoteId}'+LIMIT+1`
+        );
 
-// =========================
-// ⚡ ACTIVATE ORDER
-// =========================
-async activateOrder(orderId) {
-    await this.apiRequest(
-        'patch',
-        `sobjects/Order/${orderId}`,
-        { Status: 'Activated' }
-    );
-    console.log(`✅ Order activated!`);
-}
+        if (!result.records?.length) {
+            throw new Error('❌ Order not found');
+        }
 
-// =========================
-// 📄 CONTRACT
-// =========================
-async createContractFromOrder(orderId) {
-    await this.apiRequest(
-        'patch',
-        `sobjects/Order/${orderId}`,
-        { SBQQ__Contracted__c: true }
-    );
-    console.log(`✅ Contract generation triggered`);
+        const orderId = result.records[0].Id;
 
-    await new Promise(r => setTimeout(r, 5000));
+        console.log(
+            `✅ Order created → ID: ${orderId} | Number: ${result.records[0].OrderNumber}`
+        );
 
-    const result = await this.apiRequest(
-        'get',
-        `query?q=SELECT+Id,ContractNumber+FROM+Contract+WHERE+SBQQ__Order__c='${orderId}'+LIMIT+1`
-    );
-
-    if (!result.records?.length) {
-        console.log(`ℹ️ Contract not generated yet`);
-        return null;
+        return orderId;
     }
 
-    const contractId = result.records[0].Id;
-    console.log(`✅ Contract → ID: ${contractId} | Number: ${result.records[0].ContractNumber}`);
-    return contractId;
-}
-    
+    async activateOrder(orderId) {
+        await this.apiRequest(
+            'patch',
+            `sobjects/Order/${orderId}`,
+            {
+                Status: 'Activated'
+            }
+        );
+
+        console.log(`✅ Order activated!`);
+    }
+
+    async createContractFromOrder(orderId) {
+        await this.apiRequest(
+            'patch',
+            `sobjects/Order/${orderId}`,
+            {
+                SBQQ__Contracted__c: true
+            }
+        );
+
+        console.log(`✅ Contract generation triggered`);
+
+        await new Promise(r => setTimeout(r, 5000));
+
+        const result = await this.apiRequest(
+            'get',
+            `query?q=SELECT+Id,ContractNumber+FROM+Contract+WHERE+SBQQ__Order__c='${orderId}'+LIMIT+1`
+        );
+
+        if (!result.records?.length) {
+            console.log(`ℹ️ Contract not generated yet`);
+            return null;
+        }
+
+        const contractId = result.records[0].Id;
+
+        console.log(
+            `✅ Contract → ID: ${contractId} | Number: ${result.records[0].ContractNumber}`
+        );
+
+        return contractId;
+    }
 }
 
 module.exports = { UtilityFunctions };
