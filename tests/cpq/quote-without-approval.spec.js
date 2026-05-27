@@ -29,7 +29,7 @@ test.describe('Salesforce CPQ – E2E Flow Without Approval', () => {
         // =========================
         // 👤 CONTACT
         // =========================
-       
+        
         const contactId = await poManager.createContactHybrid(accountId, true);
         console.log(`✅ Contact created → ID: ${contactId}`);
          const contactInfo = await utils.apiRequest(
@@ -75,8 +75,7 @@ test.describe('Salesforce CPQ – E2E Flow Without Approval', () => {
         await utils.setQuantityOnQuoteLine(quoteId, testData.product.quantity);
 
         console.log('🎉 Phase 2 Complete — Product added, priced, and saved!');
-
-        // =========================
+     // =========================
         // 🆕 PHASE 3 — LOW DISCOUNT (No Approval needed)
         // =========================
        

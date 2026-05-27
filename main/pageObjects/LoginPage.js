@@ -16,7 +16,7 @@ class LoginPage {
     console.log('Frontdoor URL:', frontdoorUrl);
 
     // Go to Lightning home page via Frontdoor
-    await this.page.goto(frontdoorUrl, { waitUntil: 'load' });
+   await this.page.goto(frontdoorUrl, { waitUntil: 'load' });
 
     // Wait for Lightning home to load
     await this.page.waitForURL(/.*lightning\/.*/, { timeout: 30000 });
